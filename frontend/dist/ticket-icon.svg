@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60" width="100" height="60">
+  <rect x="0" y="0" width="100" height="60" rx="8" fill="#1C2541"/>
+  <rect x="5" y="5" width="90" height="50" rx="6" fill="#FFF8ED" stroke="#1C2541" stroke-width="2"/>
+  <line x1="68" y1="5" x2="68" y2="55" stroke="#1C2541" stroke-width="2" stroke-dasharray="4,4"/>
+  <circle cx="68" cy="0" r="6" fill="#1C2541"/>
+  <circle cx="68" cy="60" r="6" fill="#1C2541"/>
+  <text x="35" y="36" font-family="'Archivo Black', sans-serif" font-size="20" fill="#1C2541" text-anchor="middle">PH</text>
+  <text x="82" y="35" font-family="'IBM Plex Mono', monospace" font-size="12" fill="#E24B4A" text-anchor="middle">#1</text>
+</svg>

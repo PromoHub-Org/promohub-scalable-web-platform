@@ -5,17 +5,21 @@ import DealsList from './pages/DealsList';
 import DealDetail from './pages/DealDetail';
 import HowItWorks from './pages/HowItWorks';
 import InterestedDeals from './pages/InterestedDeals';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import MyClaims from './pages/MyClaims';
+import AdminDashboard from './pages/AdminDashboard';
 import { MOCK_DEALS } from './mockData/deals';
-import { X, LogIn, UserPlus } from 'lucide-react';
 import './styles/global.css';
 
 export default function App() {
   const [deals, setDeals] = useState(MOCK_DEALS);
-  const [activeTab, setActiveTab] = useState('deals'); // 'deals', 'interested', 'how-it-works', 'detail'
+  const [activeTab, setActiveTab] = useState('deals'); // 'deals', 'interested', 'my-claims', 'admin', 'login', 'register', 'how-it-works', 'detail'
   const [selectedDeal, setSelectedDeal] = useState(null);
-  const [authModal, setAuthModal] = useState(null); // 'login', 'register', or null
+  const [currentUser, setCurrentUser] = useState(null); // { name, email, is_admin }
+  const [userClaims, setUserClaims] = useState([]);
 
-  // Toggle user's interest for a deal
+  // Handle toggling user interest for a deal
   const handleToggleInterest = (dealId) => {
     setDeals(prevDeals =>
       prevDeals.map(d => {
@@ -32,6 +36,25 @@ export default function App() {
     );
   };
 
+  // Handle claim voucher addition
+  const handleClaimSuccess = (dealId) => {
+    const targetDeal = deals.find(d => d.id === dealId);
+    if (targetDeal) {
+      const randomCode = 'CLAIM-' + Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const newClaim = {
+        id: 'c_' + Date.now(),
+        claim_code: randomCode,
+        deal_title: targetDeal.title,
+        brand: targetDeal.brand,
+        price: targetDeal.price,
+        original_price: targetDeal.original_price,
+        claimed_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        status: 'ACTIVE'
+      };
+      setUserClaims(prev => [newClaim, ...prev]);
+    }
+  };
+
   const handleViewDetail = (deal) => {
     setSelectedDeal(deal);
     setActiveTab('detail');
@@ -40,6 +63,20 @@ export default function App() {
 
   const handleBackToDeals = () => {
     setSelectedDeal(null);
+    setActiveTab('deals');
+  };
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    if (user.is_admin) {
+      setActiveTab('admin');
+    } else {
+      setActiveTab('deals');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
     setActiveTab('deals');
   };
 
@@ -54,8 +91,10 @@ export default function App() {
           if (tab !== 'detail') setSelectedDeal(null);
         }}
         interestedCount={interestedDealsCount}
-        onLoginClick={() => setAuthModal('login')}
-        onRegisterClick={() => setAuthModal('register')}
+        currentUser={currentUser}
+        onLoginClick={() => setActiveTab('login')}
+        onRegisterClick={() => setActiveTab('register')}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
@@ -78,10 +117,40 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'my-claims' && (
+          <MyClaims 
+            userClaims={userClaims}
+            onExploreDeals={handleBackToDeals}
+          />
+        )}
+
+        {activeTab === 'admin' && (
+          <AdminDashboard 
+            deals={deals}
+            setDeals={setDeals}
+            userClaims={userClaims}
+          />
+        )}
+
+        {activeTab === 'login' && (
+          <Login 
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchToRegister={() => setActiveTab('register')}
+          />
+        )}
+
+        {activeTab === 'register' && (
+          <Register 
+            onRegisterSuccess={handleLoginSuccess}
+            onSwitchToLogin={() => setActiveTab('login')}
+          />
+        )}
+
         {activeTab === 'detail' && selectedDeal && (
           <DealDetail 
             deal={deals.find(d => d.id === selectedDeal.id) || selectedDeal} 
-            onBack={handleBackToDeals} 
+            onBack={handleBackToDeals}
+            onClaimSuccess={handleClaimSuccess}
           />
         )}
 
@@ -91,115 +160,6 @@ export default function App() {
       </main>
 
       <Footer />
-
-      {/* User Login / Register Auth Modal */}
-      {authModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(28, 37, 65, 0.75)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: 'var(--color-ticket-cream)',
-            border: '3px solid var(--color-ink-navy)',
-            borderRadius: 'var(--radius)',
-            maxWidth: '420px',
-            width: '100%',
-            padding: '24px',
-            position: 'relative'
-          }}>
-            <button 
-              onClick={() => setAuthModal(null)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--color-ink-navy)'
-              }}
-            >
-              <X size={24} />
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              {authModal === 'login' ? <LogIn size={24} color="var(--color-ink-navy)" /> : <UserPlus size={24} color="var(--color-flame-coral)" />}
-              <h2>{authModal === 'login' ? 'User Login' : 'Create Account'}</h2>
-            </div>
-
-            <p style={{ fontSize: '14px', marginBottom: '20px', color: 'var(--color-slate-grey)' }}>
-              {authModal === 'login' 
-                ? 'Sign in to view your saved vouchers and claim codes on D-Day.' 
-                : 'Create a free PromoHub account to indicate interest and claim brand discount codes.'}
-            </p>
-
-            <form onSubmit={(e) => { e.preventDefault(); setAuthModal(null); }}>
-              {authModal === 'register' && (
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>Full Name</label>
-                  <input 
-                    type="text" 
-                    placeholder="Jane Doe"
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      borderRadius: 'var(--radius)',
-                      border: '2px solid var(--color-ink-navy)',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-              )}
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>Email Address</label>
-                <input 
-                  type="email" 
-                  placeholder="jane@example.com"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: 'var(--radius)',
-                    border: '2px solid var(--color-ink-navy)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>Password</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••••"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    borderRadius: 'var(--radius)',
-                    border: '2px solid var(--color-ink-navy)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>
-                {authModal === 'login' ? 'Log In' : 'Create Account'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

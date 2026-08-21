@@ -1,10 +1,19 @@
 import React from 'react';
-import { Tag, Ticket, Heart, User, LogIn, Sparkles } from 'lucide-react';
+import { Tag, Ticket, Heart, User, LogIn, Sparkles, LayoutDashboard, LogOut } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, interestedCount, onLoginClick, onRegisterClick }) {
+export default function Navbar({ 
+  activeTab, 
+  setActiveTab, 
+  interestedCount, 
+  currentUser, 
+  onLoginClick, 
+  onRegisterClick, 
+  onLogout 
+}) {
   return (
     <header className="navbar">
       <div className="navbar-inner">
+        {/* Brand Wordmark */}
         <a href="#deals" className="navbar-brand" onClick={() => setActiveTab('deals')}>
           <div style={{
             backgroundColor: 'var(--color-ticket-cream)',
@@ -20,6 +29,7 @@ export default function Navbar({ activeTab, setActiveTab, interestedCount, onLog
           <span className="navbar-logo-text">PromoHub</span>
         </a>
 
+        {/* Navigation Links */}
         <nav>
           <ul className="navbar-nav">
             <li>
@@ -40,7 +50,7 @@ export default function Navbar({ activeTab, setActiveTab, interestedCount, onLog
                 style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative' }}
               >
                 <Heart size={18} color="var(--color-flame-coral)" fill={interestedCount > 0 ? "var(--color-flame-coral)" : "none"} />
-                My Interested Deals
+                My Saved Deals
                 {interestedCount > 0 && (
                   <span className="mono-number" style={{
                     backgroundColor: 'var(--color-flame-coral)',
@@ -57,6 +67,32 @@ export default function Navbar({ activeTab, setActiveTab, interestedCount, onLog
               </button>
             </li>
 
+            {currentUser && (
+              <li>
+                <button 
+                  className={`nav-link ${activeTab === 'my-claims' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('my-claims')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <Ticket size={18} />
+                  My Claims
+                </button>
+              </li>
+            )}
+
+            {currentUser && currentUser.is_admin && (
+              <li>
+                <button 
+                  className={`nav-link ${activeTab === 'admin' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('admin')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-stamp-amber)' }}
+                >
+                  <LayoutDashboard size={18} />
+                  Admin Dashboard
+                </button>
+              </li>
+            )}
+
             <li>
               <button 
                 className={`nav-link ${activeTab === 'how-it-works' ? 'active' : ''}`}
@@ -70,23 +106,45 @@ export default function Navbar({ activeTab, setActiveTab, interestedCount, onLog
           </ul>
         </nav>
 
+        {/* User Auth Section */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          <button 
-            className="btn btn-secondary" 
-            style={{ color: 'var(--color-ticket-cream)', borderColor: 'var(--color-ticket-cream)', padding: '6px 14px', fontSize: '14px' }}
-            onClick={onLoginClick}
-          >
-            <LogIn size={16} />
-            Log In
-          </button>
-          <button 
-            className="btn btn-primary" 
-            style={{ padding: '6px 14px', fontSize: '14px' }}
-            onClick={onRegisterClick}
-          >
-            <User size={16} />
-            Sign Up
-          </button>
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <User size={16} color="var(--color-ticket-cream)" />
+                <span style={{ fontSize: '14px', color: 'var(--color-ticket-cream)', fontWeight: '600' }}>
+                  {currentUser.name} {currentUser.is_admin && <span style={{ color: 'var(--color-stamp-amber)', fontSize: '11px' }}>(Admin)</span>}
+                </span>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                style={{ color: 'var(--color-ticket-cream)', borderColor: 'var(--color-ticket-cream)', padding: '6px 12px', fontSize: '13px' }}
+                onClick={onLogout}
+              >
+                <LogOut size={14} />
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                className="btn btn-secondary" 
+                style={{ color: 'var(--color-ticket-cream)', borderColor: 'var(--color-ticket-cream)', padding: '6px 14px', fontSize: '14px' }}
+                onClick={onLoginClick}
+              >
+                <LogIn size={16} />
+                Log In
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '6px 14px', fontSize: '14px' }}
+                onClick={onRegisterClick}
+              >
+                <User size={16} />
+                Sign Up
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,0 +1,28 @@
+:root {
+  /* Colors from PromoHub Brand & Style Guide */
+  --color-ink-navy: #1C2541;
+  --color-ticket-cream: #FFF8ED;
+  --color-flame-coral: #E24B4A;
+  --color-stamp-amber: #BA7517;
+  --color-stock-green: #3B6D11;
+  --color-slate-grey: #5F5E5A;
+
+  /* Fonts */
+  --font-headline: 'Archivo Black', sans-serif;
+  --font-body: 'Work Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Spacing system (multiples of 8px) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Shapes & Shadows */
+  --radius: 8px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 2px 4px rgba(28, 37, 65, 0.08);
+  --shadow-md: 0 4px 12px rgba(28, 37, 65, 0.12);
+}

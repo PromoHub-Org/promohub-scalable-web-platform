@@ -1,3 +1,11 @@
+# Node dependencies & build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+
 # Python
 __pycache__/
 *.py[cod]

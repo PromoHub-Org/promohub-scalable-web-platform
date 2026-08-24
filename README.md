@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-PromoHub is a fictional web platform designed to simulate a real-world application that experiences significant traffic spikes during promotional campaigns.
+PromoHub is an e-commerce web platform with generic dicount code, the website os designed to simulate a real world application that experiences significant traffic spikes during promotional campaigns.
 
-The project focuses on designing, implementing, testing, and automating a highly available and scalable cloud infrastructure capable of maintaining application availability and performance during sudden increases in traffic.
+The project focuses on designing, implementing, testing and automating a highly available and scalable cloud infrastructure capable of maintaining application availability and performance during sudden increases in traffic.
 
 ## The Problem
 
@@ -101,9 +101,9 @@ Contributors will work on defined areas of the project while maintaining a struc
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Planning & Requirements Setup | ✅ Completed | Aug 2026 |
 | **Phase 2** | Build Baseline (App & DB Deployment) | 🟡 In Progress | Aug 2026 |
-| **Phase 3** | Reproduce the Problem (Load Testing) | ⏳ Pending | — |
-| **Phase 4** | Scalable AWS Architecture Design | ⏳ Pending | — |
-| **Phase 5** | Monitoring & Reliability (CloudWatch) | ⏳ Pending | — |
-| **Phase 6** | Infrastructure as Code (Terraform) | ⏳ Pending | — |
-| **Phase 7** | CI/CD Pipeline (GitHub Actions) | ⏳ Pending | — |
-| **Phase 8** | Final Load Testing & Verification | ⏳ Pending | — |
+| **Phase 3** | Reproduce the Problem (Load Testing) |  Pending | — |
+| **Phase 4** | Scalable AWS Architecture Design |  Pending | — |
+| **Phase 5** | Monitoring & Reliability (CloudWatch) |  Pending | — |
+| **Phase 6** | Infrastructure as Code (Terraform) |  Pending | — |
+| **Phase 7** | CI/CD Pipeline (GitHub Actions) |  Pending | — |
+| **Phase 8** | Final Load Testing & Verification |  Pending | — |

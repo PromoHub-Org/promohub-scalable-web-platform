@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, AlertTriangle, CheckCircle, Ticket, Heart } from 'lucide-react';
 import { EVENT_START_DATE } from '../mockData/deals';
 
-export default function TicketCard({ deal, onClaim, onViewDetail, onToggleInterest }) {
+export default function TicketCard({ deal, onClaim, onViewDetail, onToggleInterest, isSaved = false }) {
   const [timeLeft, setTimeLeft] = useState('');
   const [isExpired, setIsExpired] = useState(false);
 
@@ -39,6 +39,7 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
 
   const isSoldOut = deal.stock_remaining === 0 || isExpired;
   const isLowStock = deal.stock_remaining > 0 && deal.stock_remaining <= 5;
+  const isInterested = Boolean(isSaved || deal.is_interested);
 
   return (
     <div className={`ticket-card ${isSoldOut ? 'sold-out' : ''}`}>
@@ -87,9 +88,9 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
 
         <div className="ticket-meta">
           <div>
-            <span className="ticket-price">${deal.price.toFixed(2)}</span>
+            <span className="ticket-price">${Number(deal.price).toFixed(2)}</span>
             {deal.original_price && (
-              <span className="ticket-original-price">${deal.original_price.toFixed(2)}</span>
+              <span className="ticket-original-price">${Number(deal.original_price).toFixed(2)}</span>
             )}
           </div>
 
@@ -103,30 +104,30 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: 'var(--radius)',
-                border: deal.is_interested ? '2px solid var(--color-flame-coral)' : '1px solid var(--color-ink-navy)',
-                backgroundColor: deal.is_interested ? 'rgba(226, 75, 74, 0.1)' : '#ffffff',
-                color: deal.is_interested ? 'var(--color-flame-coral)' : 'var(--color-ink-navy)',
+                border: isInterested ? '2px solid var(--color-flame-coral)' : '1px solid var(--color-ink-navy)',
+                backgroundColor: isInterested ? 'rgba(226, 75, 74, 0.1)' : '#ffffff',
+                color: isInterested ? 'var(--color-flame-coral)' : 'var(--color-ink-navy)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={deal.is_interested ? "You indicated interest for D-Day!" : "Click to indicate interest for D-Day!"}
+              title={isInterested ? "Saved to your Wishlist!" : "Click to indicate interest for D-Day!"}
             >
               <Heart 
                 size={16} 
                 color="var(--color-flame-coral)" 
-                fill={deal.is_interested ? "var(--color-flame-coral)" : "none"} 
+                fill={isInterested ? "var(--color-flame-coral)" : "none"} 
               />
-              <span>{deal.interested_count.toLocaleString()}</span>
-              {deal.is_interested && <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Interested</span>}
+              <span>{Number(deal.interested_count || 0).toLocaleString()}</span>
+              {isInterested && <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Saved</span>}
             </button>
 
             <button 
               className="btn btn-secondary"
               style={{ padding: '6px 12px', fontSize: '13px' }}
-              onClick={() => onViewDetail(deal)}
+              onClick={() => onViewDetail && onViewDetail(deal.id || deal)}
             >
               Details
             </button>
@@ -165,7 +166,7 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
         <button
           className={`btn ${isSoldOut ? 'btn-disabled' : 'btn-primary'}`}
           disabled={isSoldOut}
-          onClick={() => onClaim(deal)}
+          onClick={() => onClaim && onClaim(deal)}
         >
           <Ticket size={18} />
           {isSoldOut ? 'SOLD OUT' : 'CLAIM DEAL'}

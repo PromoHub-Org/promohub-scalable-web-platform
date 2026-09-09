@@ -1,27 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import TicketCard from '../components/TicketCard';
-import ClaimModal from '../components/ClaimModal';
-import { ArrowLeft, ShieldCheck, Award, CheckCircle, AlertTriangle, Ticket, Clock, Percent } from 'lucide-react';
+import { ArrowLeft, Award } from 'lucide-react';
 
-export default function DealDetail({ deal, onBack, onClaimSuccess }) {
-  const [selectedDealForClaim, setSelectedDealForClaim] = useState(null);
-  const [currentDeal, setCurrentDeal] = useState(deal);
-
+export default function DealDetail({ 
+  deal, 
+  onBack, 
+  onClaim, 
+  isSaved = false, 
+  onToggleSaved 
+}) {
   if (!deal) return null;
 
-  const handleLocalClaimSuccess = (dealId) => {
-    setCurrentDeal(prev => ({
-      ...prev,
-      stock_remaining: Math.max(0, prev.stock_remaining - 1)
-    }));
-    if (onClaimSuccess) {
-      onClaimSuccess(dealId);
-    }
-  };
-
-  const stockPercentage = Math.round((currentDeal.stock_remaining / currentDeal.total_stock) * 100);
-  const isLowStock = currentDeal.stock_remaining > 0 && currentDeal.stock_remaining <= 5;
-  const isSoldOut = currentDeal.stock_remaining === 0;
+  const stockPercentage = Math.round((deal.stock_remaining / deal.total_stock) * 100);
+  const isLowStock = deal.stock_remaining > 0 && deal.stock_remaining <= 5;
+  const isSoldOut = deal.stock_remaining === 0;
 
   return (
     <div style={{ maxWidth: '850px', margin: '0 auto' }}>
@@ -48,13 +40,13 @@ export default function DealDetail({ deal, onBack, onClaimSuccess }) {
             borderRadius: '4px',
             border: '1px solid rgba(186, 117, 23, 0.3)'
           }}>
-            {currentDeal.brand}
+            {deal.brand}
           </span>
-          <span style={{ fontSize: '14px', color: 'var(--color-slate-grey)' }}>• {currentDeal.category || 'Flash Sale'}</span>
+          <span style={{ fontSize: '14px', color: 'var(--color-slate-grey)' }}>• {deal.category || 'Flash Sale'}</span>
         </div>
 
-        <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>{currentDeal.title}</h1>
-        <p className="text-muted" style={{ fontSize: '16px' }}>{currentDeal.description}</p>
+        <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>{deal.title}</h1>
+        <p className="text-muted" style={{ fontSize: '16px' }}>{deal.description}</p>
       </div>
 
       {/* Stock Progress Indicator Bar */}
@@ -74,7 +66,7 @@ export default function DealDetail({ deal, onBack, onClaimSuccess }) {
             fontWeight: '700',
             color: isSoldOut ? 'var(--color-slate-grey)' : isLowStock ? 'var(--color-flame-coral)' : 'var(--color-stock-green)'
           }}>
-            {currentDeal.stock_remaining} of {currentDeal.total_stock} Units Remaining ({stockPercentage}%)
+            {deal.stock_remaining} of {deal.total_stock} Units Remaining ({stockPercentage}%)
           </span>
         </div>
 
@@ -103,9 +95,11 @@ export default function DealDetail({ deal, onBack, onClaimSuccess }) {
       {/* Prominent Ticket Stub Card */}
       <div style={{ marginBottom: 'var(--space-xl)' }}>
         <TicketCard 
-          deal={currentDeal}
-          onClaim={(d) => setSelectedDealForClaim(d)}
+          deal={deal}
+          isSaved={isSaved}
+          onClaim={() => onClaim(deal)}
           onViewDetail={() => {}}
+          onToggleInterest={() => onToggleSaved && onToggleSaved(deal.id)}
         />
       </div>
 
@@ -138,20 +132,11 @@ export default function DealDetail({ deal, onBack, onClaimSuccess }) {
           <div>
             <strong style={{ display: 'block', fontSize: '14px' }}>Authentic Brand Voucher</strong>
             <span style={{ fontSize: '13px', color: 'var(--color-slate-grey)' }}>
-              Verified promotional discount stub for official {currentDeal.brand} products.
+              Verified promotional discount stub for official {deal.brand} products.
             </span>
           </div>
         </div>
       </div>
-
-      {/* Interactive Claim Modal */}
-      {selectedDealForClaim && (
-        <ClaimModal 
-          deal={selectedDealForClaim}
-          onClose={() => setSelectedDealForClaim(null)}
-          onConfirmClaim={handleLocalClaimSuccess}
-        />
-      )}
     </div>
   );
 }

@@ -66,6 +66,8 @@ export const adminAPI = {
 
   getClaimsLedger: () => request('/admin/claims'),
 
+  getUsers: () => request('/admin/users'),
+
   createDeal: (dealData) => request('/admin/deals', {
     method: 'POST',
     body: JSON.stringify(dealData)

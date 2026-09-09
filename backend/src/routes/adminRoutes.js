@@ -4,7 +4,8 @@ import {
   adminUpdateDeal, 
   adminDeleteDeal, 
   adminGetClaims, 
-  adminGetStats 
+  adminGetStats,
+  adminGetUsers
 } from '../controllers/adminController.js';
 import { verifyToken, requireAdmin } from '../middleware/auth.js';
 
@@ -18,5 +19,6 @@ router.put('/deals/:id', adminUpdateDeal);
 router.delete('/deals/:id', adminDeleteDeal);
 router.get('/claims', adminGetClaims);
 router.get('/stats', adminGetStats);
+router.get('/users', adminGetUsers);
 
 export default router;

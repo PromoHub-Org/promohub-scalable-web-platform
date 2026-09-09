@@ -9,8 +9,18 @@ export default function ClaimModal({ deal, onClose, onConfirmClaim, currentUser,
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleClaim = async () => {
-    // If not logged in, prompt user to sign in first
-    if (!currentUser) {
+    // If not logged in, check both props and localStorage fallback
+    let activeUser = currentUser;
+    if (!activeUser) {
+      try {
+        const stored = localStorage.getItem('promohub_user');
+        if (stored) activeUser = JSON.parse(stored);
+      } catch (e) {
+        console.error('Error reading promohub_user from storage:', e);
+      }
+    }
+
+    if (!activeUser) {
       onClose();
       if (onPromptLogin) onPromptLogin();
       return;

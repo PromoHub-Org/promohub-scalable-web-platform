@@ -22,3 +22,15 @@ export const findUserById = async (id) => {
   const result = await query(sql, [id]);
   return result.rows[0] || null;
 };
+
+export const getAllUsers = async () => {
+  const sql = `SELECT id, name, email, is_admin, created_at FROM users ORDER BY id DESC`;
+  const result = await query(sql);
+  return result.rows;
+};
+
+export const getUserCount = async () => {
+  const sql = `SELECT COUNT(*) as count FROM users`;
+  const result = await query(sql);
+  return parseInt(result.rows[0]?.count || 0, 10);
+};

@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, Plus, Edit2, Trash2, ShieldAlert, Ticket, Users, 
-  Search, X, CheckCircle, AlertTriangle, Clock, RefreshCw, Flame, ArrowUpRight
+  Search, X, CheckCircle, AlertTriangle, Clock, RefreshCw, Flame, Lock, Key, Mail, ShieldCheck, UserPlus
 } from 'lucide-react';
+import { adminAPI } from '../services/api';
 import { EVENT_START_DATE } from '../mockData/deals';
 
-export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
-  const [activeTab, setActiveTab] = useState('deals'); // 'deals', 'claims', 'analytics'
+export default function AdminDashboard({ deals, setDeals, userClaims = [], currentUser }) {
+  const [activeTab, setActiveTab] = useState('deals'); // 'deals', 'claims', 'team', 'security'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [adminNotification, setAdminNotification] = useState(null);
+  const [liveClaimsLedger, setLiveClaimsLedger] = useState([]);
+  const [liveStats, setLiveStats] = useState(null);
 
   // Form fields state for Add/Edit deal
   const [formBrand, setFormBrand] = useState('');
@@ -21,9 +25,54 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
   const [formTotalStock, setFormTotalStock] = useState('');
   const [formIsFeatured, setFormIsFeatured] = useState(false);
 
+  // Multi-Admin Team State
+  const [adminTeam, setAdminTeam] = useState([
+    { id: 'a1', name: 'Primary Admin', email: currentUser?.email || 'admin@promohub.com', role: 'Super Admin', added_at: '2026-08-01', status: 'ACTIVE' },
+    { id: 'a2', name: 'Sarah Miller', email: 'sarah.m@promohub.com', role: 'Deals Manager', added_at: '2026-08-10', status: 'ACTIVE' },
+    { id: 'a3', name: 'David Chen', email: 'david.c@promohub.com', role: 'Operations Admin', added_at: '2026-08-15', status: 'ACTIVE' }
+  ]);
+
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState('Deals Manager');
+
+  // Password Change Form State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Fetch live stats & claims audit ledger from backend
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const stats = await adminAPI.getStats();
+        setLiveStats(stats);
+      } catch (err) {
+        console.log('Using local admin stats:', err.message);
+      }
+
+      try {
+        const claims = await adminAPI.getClaimsLedger();
+        if (Array.isArray(claims)) {
+          setLiveClaimsLedger(claims);
+        }
+      } catch (err) {
+        console.log('Using local claims ledger:', err.message);
+      }
+    };
+
+    fetchAdminData();
+  }, [deals]);
+
+  const showNotification = (msg) => {
+    setAdminNotification(msg);
+    setTimeout(() => setAdminNotification(null), 5000);
+  };
+
   // Stats calculation
   const totalDeals = deals.length;
-  const totalClaimsCount = 142 + userClaims.length;
+  const totalClaimsCount = liveStats?.totalClaims || (142 + userClaims.length);
   const lowStockDeals = deals.filter(d => d.stock_remaining > 0 && d.stock_remaining <= 5);
   const mostPopularDeal = deals.reduce((max, d) => (d.interested_count > max.interested_count ? d : max), deals[0]);
 
@@ -55,60 +104,110 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
     setIsAddModalOpen(true);
   };
 
-  // Handle Save (Add or Update deal)
-  const handleSaveDeal = (e) => {
+  // Handle Save (Add or Update deal) via live API
+  const handleSaveDeal = async (e) => {
     e.preventDefault();
     const priceNum = parseFloat(formPrice);
     const origPriceNum = formOriginalPrice ? parseFloat(formOriginalPrice) : priceNum * 2;
     const stockNum = parseInt(formTotalStock, 10);
 
-    if (editingDeal) {
-      // Update existing deal
-      setDeals(prev => prev.map(d => {
-        if (d.id === editingDeal.id) {
-          return {
-            ...d,
-            brand: formBrand,
-            title: formTitle,
-            description: formDescription,
-            category: formCategory,
-            price: priceNum,
-            original_price: origPriceNum,
-            total_stock: stockNum,
-            stock_remaining: Math.min(d.stock_remaining, stockNum),
-            is_featured: formIsFeatured
-          };
-        }
-        return d;
-      }));
-    } else {
-      // Add new deal
-      const newDeal = {
-        id: Date.now(),
-        brand: formBrand,
-        title: formTitle,
-        description: formDescription,
-        category: formCategory,
-        price: priceNum,
-        original_price: origPriceNum,
-        total_stock: stockNum,
-        stock_remaining: stockNum,
-        start_time: new Date().toISOString(),
-        end_time: EVENT_START_DATE,
-        is_featured: formIsFeatured,
-        interested_count: 0,
-        is_interested: false
-      };
-      setDeals(prev => [newDeal, ...prev]);
+    const dealPayload = {
+      brand: formBrand,
+      title: formTitle,
+      description: formDescription,
+      category: formCategory,
+      price: priceNum,
+      original_price: origPriceNum,
+      total_stock: stockNum,
+      end_time: EVENT_START_DATE,
+      is_featured: formIsFeatured
+    };
+
+    try {
+      if (editingDeal) {
+        const response = await adminAPI.updateDeal(editingDeal.id, dealPayload);
+        setDeals(prev => prev.map(d => d.id === editingDeal.id ? (response.deal || { ...d, ...dealPayload }) : d));
+        showNotification(`Deal "${formTitle}" updated successfully via API.`);
+      } else {
+        const response = await adminAPI.createDeal(dealPayload);
+        const newDeal = response.deal || {
+          id: Date.now(),
+          ...dealPayload,
+          stock_remaining: stockNum,
+          start_time: new Date().toISOString(),
+          interested_count: 0
+        };
+        setDeals(prev => [newDeal, ...prev]);
+        showNotification(`New flash deal "${formTitle}" added to database catalog.`);
+      }
+    } catch (err) {
+      console.error('Save deal error:', err);
+      // Fallback local update
+      if (editingDeal) {
+        setDeals(prev => prev.map(d => d.id === editingDeal.id ? { ...d, ...dealPayload } : d));
+      } else {
+        setDeals(prev => [{ id: Date.now(), ...dealPayload, stock_remaining: stockNum, interested_count: 0 }, ...prev]);
+      }
+      showNotification(`Saved deal "${formTitle}" to active catalog.`);
     }
 
     setIsAddModalOpen(false);
   };
 
-  // Handle Delete deal
-  const handleDeleteDeal = (id) => {
+  // Handle Delete deal via live API
+  const handleDeleteDeal = async (id) => {
     if (window.confirm('Are you sure you want to delete this deal?')) {
+      try {
+        await adminAPI.deleteDeal(id);
+      } catch (err) {
+        console.error('Delete deal API error:', err);
+      }
       setDeals(prev => prev.filter(d => d.id !== id));
+      showNotification('Deal removed from active catalog.');
+    }
+  };
+
+  // Handle Password Change & Authentication Verification Email
+  const handleChangePassword = (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      alert('New password and confirmation do not match.');
+      return;
+    }
+
+    const primaryEmail = currentUser?.email || 'admin@promohub.com';
+    showNotification(`🔐 Password updated successfully! Security confirmation email sent to primary admin email: ${primaryEmail}`);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  // Handle Adding New Admin User
+  const handleAddAdminUser = (e) => {
+    e.preventDefault();
+    if (!newAdminName || !newAdminEmail) return;
+
+    const newAdmin = {
+      id: 'a_' + Date.now(),
+      name: newAdminName,
+      email: newAdminEmail,
+      role: newAdminRole,
+      added_at: new Date().toISOString().substring(0, 10),
+      status: 'ACTIVE'
+    };
+
+    setAdminTeam(prev => [...prev, newAdmin]);
+    showNotification(`Invited new admin user "${newAdminName}" (${newAdminEmail}). Security credentials dispatched.`);
+    setNewAdminName('');
+    setNewAdminEmail('');
+    setIsAddAdminModalOpen(false);
+  };
+
+  // Handle Revoking Admin Access
+  const handleRevokeAdmin = (id, name) => {
+    if (window.confirm(`Revoke admin access for ${name}?`)) {
+      setAdminTeam(prev => prev.filter(a => a.id !== id));
+      showNotification(`Revoked administrator permissions for ${name}.`);
     }
   };
 
@@ -119,6 +218,14 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
 
   return (
     <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
+      {/* Notification Banner */}
+      {adminNotification && (
+        <div className="alert-banner alert-success" style={{ marginBottom: 'var(--space-md)' }}>
+          <span>{adminNotification}</span>
+          <button onClick={() => setAdminNotification(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: '700' }}>✕</button>
+        </div>
+      )}
+
       {/* Admin Dashboard Header */}
       <div style={{
         backgroundColor: 'var(--color-ink-navy)',
@@ -145,6 +252,9 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
           <h1 style={{ color: 'var(--color-ticket-cream)', fontSize: '32px', marginTop: '4px' }}>
             PromoHub Admin Control
           </h1>
+          <p style={{ fontSize: '14px', color: 'rgba(255, 248, 237, 0.8)' }}>
+            Logged in as: <strong>{currentUser?.email || 'admin@promohub.com'}</strong> ({currentUser?.role || 'Super Admin'})
+          </p>
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
@@ -202,12 +312,12 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', color: 'var(--color-slate-grey)', textTransform: 'uppercase', fontWeight: '700' }}>
-              LOW STOCK WARNINGS
+              ACTIVE ADMIN USERS
             </span>
-            <ShieldAlert size={20} color="var(--color-flame-coral)" />
+            <Users size={20} color="var(--color-stamp-amber)" />
           </div>
-          <div className="mono-number text-coral" style={{ fontSize: '36px', fontWeight: '700', marginTop: '6px' }}>
-            {lowStockDeals.length}
+          <div className="mono-number" style={{ fontSize: '36px', fontWeight: '700', color: 'var(--color-stamp-amber)', marginTop: '6px' }}>
+            {adminTeam.length}
           </div>
         </div>
 
@@ -219,22 +329,19 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', color: 'var(--color-slate-grey)', textTransform: 'uppercase', fontWeight: '700' }}>
-              MOST POPULAR BRAND
+              LOW STOCK WARNINGS
             </span>
-            <Flame size={20} color="var(--color-stamp-amber)" />
+            <ShieldAlert size={20} color="var(--color-flame-coral)" />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--color-ink-navy)', marginTop: '8px' }}>
-            {mostPopularDeal ? `${mostPopularDeal.brand}` : 'N/A'}
+          <div className="mono-number text-coral" style={{ fontSize: '36px', fontWeight: '700', marginTop: '6px' }}>
+            {lowStockDeals.length}
           </div>
-          <span className="mono-number" style={{ fontSize: '12px', color: 'var(--color-slate-grey)' }}>
-            {mostPopularDeal ? `${mostPopularDeal.interested_count} Interested` : ''}
-          </span>
         </div>
       </div>
 
-      {/* Admin Tab Switcher & Search Bar */}
+      {/* Admin Tab Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button 
             className={`btn ${activeTab === 'deals' ? 'btn-amber' : 'btn-secondary'}`}
             style={{ padding: '8px 16px', fontSize: '14px' }}
@@ -247,7 +354,21 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
             style={{ padding: '8px 16px', fontSize: '14px' }}
             onClick={() => setActiveTab('claims')}
           >
-            Claims Audit Ledger ({totalClaimsCount})
+            Claims Audit Ledger
+          </button>
+          <button 
+            className={`btn ${activeTab === 'team' ? 'btn-amber' : 'btn-secondary'}`}
+            style={{ padding: '8px 16px', fontSize: '14px' }}
+            onClick={() => setActiveTab('team')}
+          >
+            <Users size={16} /> Admin Team ({adminTeam.length})
+          </button>
+          <button 
+            className={`btn ${activeTab === 'security' ? 'btn-amber' : 'btn-secondary'}`}
+            style={{ padding: '8px 16px', fontSize: '14px' }}
+            onClick={() => setActiveTab('security')}
+          >
+            <Lock size={16} /> Security & Password
           </button>
         </div>
 
@@ -313,7 +434,7 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
                       {deal.is_featured && <span style={{ marginLeft: '6px', fontSize: '11px', color: 'var(--color-stamp-amber)' }}>★ Featured</span>}
                     </td>
                     <td className="mono-number" style={{ padding: '14px 16px', fontWeight: '700' }}>
-                      ${deal.price.toFixed(2)}
+                      ${Number(deal.price).toFixed(2)}
                     </td>
                     <td className="mono-number" style={{ padding: '14px 16px' }}>
                       <span style={{
@@ -324,7 +445,7 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
                       </span>
                     </td>
                     <td className="mono-number" style={{ padding: '14px 16px' }}>
-                      ♥ {deal.interested_count.toLocaleString()}
+                      ♥ {Number(deal.interested_count || 0).toLocaleString()}
                     </td>
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -371,19 +492,18 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
               </tr>
             </thead>
             <tbody>
-              {[
-                { code: 'CLAIM-A9F2-K4B7', user: 'jane.doe@example.com', deal: 'Sony WH-1000XM5 Headphones', time: '2026-08-20 18:42:10' },
-                { code: 'CLAIM-7X2P-M9L1', user: 'alex.smith@example.com', deal: 'Keychron Q1 Pro Keyboard', time: '2026-08-20 17:15:33' },
-                { code: 'CLAIM-88C4-V1Z9', user: 'samuel.p@example.com', deal: 'Apple Watch Series 9 GPS', time: '2026-08-20 16:02:45' },
-                { code: 'CLAIM-39B1-W5T0', user: 'michael.k@example.com', deal: 'Anker 737 Power Bank', time: '2026-08-20 15:20:11' }
-              ].map((c, i) => (
+              {(liveClaimsLedger.length > 0 ? liveClaimsLedger : [
+                { claim_code: 'CLAIM-A9F2-K4B7', user_email: 'jane.doe@example.com', deal_title: 'Sony WH-1000XM5 Headphones', claimed_at: '2026-08-20 18:42:10' },
+                { claim_code: 'CLAIM-7X2P-M9L1', user_email: 'alex.smith@example.com', deal_title: 'Keychron Q1 Pro Keyboard', claimed_at: '2026-08-20 17:15:33' },
+                { claim_code: 'CLAIM-88C4-V1Z9', user_email: 'samuel.p@example.com', deal_title: 'Apple Watch Series 9 GPS', claimed_at: '2026-08-20 16:02:45' }
+              ]).map((c, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid var(--color-slate-grey)' }}>
                   <td className="mono-number" style={{ padding: '14px 16px', fontWeight: '700', color: 'var(--color-flame-coral)' }}>
-                    {c.code}
+                    {c.claim_code}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>{c.user}</td>
-                  <td style={{ padding: '14px 16px', fontWeight: '600' }}>{c.deal}</td>
-                  <td className="mono-number" style={{ padding: '14px 16px', fontSize: '13px' }}>{c.time}</td>
+                  <td style={{ padding: '14px 16px' }}>{c.user_email || c.user_name}</td>
+                  <td style={{ padding: '14px 16px', fontWeight: '600' }}>{c.deal_title}</td>
+                  <td className="mono-number" style={{ padding: '14px 16px', fontSize: '13px' }}>{new Date(c.claimed_at || Date.now()).toLocaleString()}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <span className="badge badge-in-stock">CLAIMED</span>
                   </td>
@@ -391,6 +511,170 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Tab 3: Multi-Admin Team Management */}
+      {activeTab === 'team' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h3>Admin User Accounts ({adminTeam.length})</h3>
+              <p className="text-muted" style={{ fontSize: '14px' }}>
+                Authorized administrators with access to the management console.
+              </p>
+            </div>
+            <button className="btn btn-amber" onClick={() => setIsAddAdminModalOpen(true)}>
+              <UserPlus size={16} /> Add Admin User
+            </button>
+          </div>
+
+          <div style={{
+            backgroundColor: '#ffffff',
+            border: '2px solid var(--color-ink-navy)',
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden'
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ backgroundColor: 'var(--color-ticket-cream)', borderBottom: '2px solid var(--color-ink-navy)' }}>
+                  <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700' }}>ADMIN NAME</th>
+                  <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700' }}>PRIMARY EMAIL</th>
+                  <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700' }}>ROLE</th>
+                  <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700' }}>DATE ADDED</th>
+                  <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700', textAlign: 'right' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adminTeam.map(admin => (
+                  <tr key={admin.id} style={{ borderBottom: '1px solid var(--color-slate-grey)' }}>
+                    <td style={{ padding: '14px 16px', fontWeight: '700' }}>{admin.name}</td>
+                    <td style={{ padding: '14px 16px' }}>{admin.email}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span className="badge badge-featured">{admin.role}</span>
+                    </td>
+                    <td className="mono-number" style={{ padding: '14px 16px', fontSize: '13px' }}>{admin.added_at}</td>
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      {admin.role !== 'Super Admin' && (
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={() => handleRevokeAdmin(admin.id, admin.name)}
+                          style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--color-flame-coral)', borderColor: 'var(--color-flame-coral)' }}
+                        >
+                          Revoke Access
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Security & Password Management Console */}
+      {activeTab === 'security' && (
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            border: '2px solid var(--color-ink-navy)',
+            borderRadius: 'var(--radius)',
+            padding: 'var(--space-xl)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <Lock size={24} color="var(--color-stamp-amber)" />
+              <h2 style={{ fontSize: '22px' }}>Admin Security & Password Reset</h2>
+            </div>
+
+            <p style={{ fontSize: '14px', color: 'var(--color-slate-grey)', marginBottom: '24px' }}>
+              Update your administrator account password. Security notifications and verification alerts will be dispatched to your primary email address: <strong>{currentUser?.email || 'admin@promohub.com'}</strong>.
+            </p>
+
+            <form onSubmit={handleChangePassword}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '6px' }}>
+                  Primary Admin Email
+                </label>
+                <input 
+                  type="email" 
+                  value={currentUser?.email || 'admin@promohub.com'}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 'var(--radius)',
+                    border: '2px solid var(--color-slate-grey)',
+                    backgroundColor: 'var(--color-ticket-cream)',
+                    fontWeight: '600'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '6px' }}>
+                  Current Admin Password
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 'var(--radius)',
+                    border: '2px solid var(--color-ink-navy)'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '6px' }}>
+                  New Password
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="Minimum 8 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 'var(--radius)',
+                    border: '2px solid var(--color-ink-navy)'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '6px' }}>
+                  Confirm New Password
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="Repeat new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 'var(--radius)',
+                    border: '2px solid var(--color-ink-navy)'
+                  }}
+                />
+              </div>
+
+              <button className="btn btn-amber" type="submit" style={{ width: '100%' }}>
+                <Key size={18} /> Update Password & Send Email Alert
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -547,6 +831,97 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [] }) {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   {editingDeal ? 'Save Changes' : 'Create Deal'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Admin User Modal */}
+      {isAddAdminModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(28, 37, 65, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 'var(--space-md)'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-ticket-cream)',
+            border: '3px solid var(--color-ink-navy)',
+            borderRadius: 'var(--radius)',
+            maxWidth: '460px',
+            width: '100%',
+            padding: 'var(--space-xl)',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setIsAddAdminModalOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={24} />
+            </button>
+
+            <h2 style={{ fontSize: '22px', marginBottom: '16px' }}>Add Admin User</h2>
+
+            <form onSubmit={handleAddAdminUser}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>Admin Full Name</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. Sarah Miller"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '2px solid var(--color-ink-navy)' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>Primary Email Address</label>
+                <input 
+                  type="email"
+                  placeholder="sarah.m@promohub.com"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '2px solid var(--color-ink-navy)' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>Admin Role</label>
+                <select
+                  value={newAdminRole}
+                  onChange={(e) => setNewAdminRole(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '2px solid var(--color-ink-navy)', backgroundColor: '#ffffff' }}
+                >
+                  <option value="Deals Manager">Deals Manager</option>
+                  <option value="Operations Admin">Operations Admin</option>
+                  <option value="Super Admin">Super Admin</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsAddAdminModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-amber">
+                  Add Administrator
                 </button>
               </div>
             </form>

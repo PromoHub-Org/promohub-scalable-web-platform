@@ -1,32 +1,31 @@
-import React, { useState } from 'react';
-import { Ticket, Copy, CheckCircle2, Clock, Sparkles, ExternalLink, Tag } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Ticket, Copy, CheckCircle2, Clock, Sparkles, ExternalLink, RefreshCw } from 'lucide-react';
+import { claimsAPI } from '../services/api';
 
 export default function MyClaims({ userClaims = [], onExploreDeals }) {
   const [copiedCode, setCopiedCode] = useState(null);
+  const [liveClaims, setLiveClaims] = useState(userClaims);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Sample mock claims if user is logged in
-  const displayClaims = userClaims.length > 0 ? userClaims : [
-    {
-      id: 'c1',
-      claim_code: 'CLAIM-A9F2-K4B7',
-      deal_title: 'Sony WH-1000XM5 Wireless Headphones',
-      brand: 'Sony',
-      price: 149.99,
-      original_price: 399.99,
-      claimed_at: '2026-08-20 18:42:10',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'c2',
-      claim_code: 'CLAIM-7X2P-M9L1',
-      deal_title: 'Keychron Q1 Pro Wireless Mechanical Keyboard',
-      brand: 'Keychron',
-      price: 69.50,
-      original_price: 199.00,
-      claimed_at: '2026-08-19 14:15:33',
-      status: 'ACTIVE'
-    }
-  ];
+  useEffect(() => {
+    const fetchUserClaims = async () => {
+      setIsLoading(true);
+      try {
+        const data = await claimsAPI.getMyClaims();
+        if (Array.isArray(data) && data.length > 0) {
+          setLiveClaims(data);
+        }
+      } catch (err) {
+        console.log('Using local user claims state:', err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserClaims();
+  }, []);
+
+  const displayClaims = liveClaims.length > 0 ? liveClaims : userClaims;
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -34,7 +33,7 @@ export default function MyClaims({ userClaims = [], onExploreDeals }) {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const totalSaved = displayClaims.reduce((acc, c) => acc + (c.original_price - c.price), 0);
+  const totalSaved = displayClaims.reduce((acc, c) => acc + (Number(c.original_price || 0) - Number(c.price || 0)), 0);
 
   return (
     <div style={{ maxWidth: '950px', margin: '0 auto' }}>
@@ -81,7 +80,7 @@ export default function MyClaims({ userClaims = [], onExploreDeals }) {
             ACTIVE UNREDEEMED CODES
           </span>
           <div className="mono-number text-green" style={{ fontSize: '32px', fontWeight: '700', marginTop: '4px' }}>
-            {displayClaims.filter(c => c.status === 'ACTIVE').length}
+            {displayClaims.length}
           </div>
         </div>
 
@@ -103,9 +102,9 @@ export default function MyClaims({ userClaims = [], onExploreDeals }) {
       {/* Claimed Vouchers List */}
       {displayClaims.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {displayClaims.map(claim => (
+          {displayClaims.map((claim, idx) => (
             <div 
-              key={claim.id}
+              key={claim.id || idx}
               style={{
                 backgroundColor: '#ffffff',
                 border: '2px solid var(--color-ink-navy)',
@@ -129,13 +128,13 @@ export default function MyClaims({ userClaims = [], onExploreDeals }) {
                     padding: '2px 8px',
                     borderRadius: '4px'
                   }}>
-                    {claim.brand}
+                    {claim.brand || 'PromoHub'}
                   </span>
                   <span className="badge badge-in-stock">ACTIVE VOUCHER</span>
                 </div>
                 <h3 style={{ fontSize: '18px', marginBottom: '4px' }}>{claim.deal_title}</h3>
                 <span style={{ fontSize: '13px', color: 'var(--color-slate-grey)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Clock size={14} /> Claimed on: {claim.claimed_at}
+                  <Clock size={14} /> Claimed on: {new Date(claim.claimed_at || Date.now()).toLocaleString()}
                 </span>
               </div>
 

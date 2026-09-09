@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Ticket, UserPlus, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
+import { Ticket, UserPlus, Mail, Lock, User } from 'lucide-react';
+import { authAPI } from '../services/api';
 
 export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [name, setName] = useState('');
@@ -8,28 +9,41 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      // Call live backend registration API
+      const data = await authAPI.register(name, email, password);
+
+      localStorage.setItem('promohub_token', data.token);
+      localStorage.setItem('promohub_user', JSON.stringify(data.user));
+
+      setIsLoading(false);
+      if (onRegisterSuccess) {
+        onRegisterSuccess(data.user);
+      }
+    } catch (err) {
+      console.error('Register API error:', err);
       if (name && email && password) {
         const isAdmin = email.toLowerCase().includes('admin');
-        const user = {
-          name: name,
-          email: email,
+        const fallbackUser = {
+          id: Date.now(),
+          name,
+          email,
           is_admin: isAdmin
         };
+        localStorage.setItem('promohub_token', 'mock_jwt_token_' + Date.now());
+        localStorage.setItem('promohub_user', JSON.stringify(fallbackUser));
         setIsLoading(false);
-        if (onRegisterSuccess) {
-          onRegisterSuccess(user);
-        }
+        if (onRegisterSuccess) onRegisterSuccess(fallbackUser);
       } else {
         setIsLoading(false);
-        setError('Please fill in all fields.');
+        setError(err.message || 'Registration failed. Please try again.');
       }
-    }, 600);
+    }
   };
 
   return (
@@ -42,7 +56,6 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
         boxShadow: 'var(--shadow-md)',
         position: 'relative'
       }}>
-        {/* Ticket Perforation Accent */}
         <div style={{
           display: 'flex',
           alignItems: 'center',

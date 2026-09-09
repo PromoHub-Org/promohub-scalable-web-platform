@@ -1,165 +1,236 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
 import DealsList from './pages/DealsList';
 import DealDetail from './pages/DealDetail';
-import HowItWorks from './pages/HowItWorks';
+import MyClaims from './pages/MyClaims';
+import AdminDashboard from './pages/AdminDashboard';
 import InterestedDeals from './pages/InterestedDeals';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import MyClaims from './pages/MyClaims';
-import AdminDashboard from './pages/AdminDashboard';
-import { MOCK_DEALS } from './mockData/deals';
-import './styles/global.css';
+import ClaimModal from './components/ClaimModal';
+import { MOCK_DEALS as mockDeals } from './mockData/deals';
+import { dealsAPI } from './services/api';
 
 export default function App() {
-  const [deals, setDeals] = useState(MOCK_DEALS);
-  const [activeTab, setActiveTab] = useState('deals'); // 'deals', 'interested', 'my-claims', 'admin', 'login', 'register', 'how-it-works', 'detail'
-  const [selectedDeal, setSelectedDeal] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null); // { name, email, is_admin }
+  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'detail', 'claims', 'admin', 'interested', 'login', 'register'
+  const [selectedDealId, setSelectedDealId] = useState(null);
+  const [deals, setDeals] = useState(mockDeals);
   const [userClaims, setUserClaims] = useState([]);
+  const [savedDealIds, setSavedDealIds] = useState([]);
+  const [claimingDeal, setClaimingDeal] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [targetAdminView, setTargetAdminView] = useState(false);
 
-  // Handle toggling user interest for a deal
-  const handleToggleInterest = (dealId) => {
-    setDeals(prevDeals =>
-      prevDeals.map(d => {
+  // Initialize Auth state & fetch live deals catalog from backend on mount
+  useEffect(() => {
+    // Check localStorage for saved token & user
+    const savedToken = localStorage.getItem('promohub_token');
+    const savedUser = localStorage.getItem('promohub_user');
+    if (savedToken && savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (err) {
+        console.error('Error parsing stored user:', err);
+      }
+    }
+
+    // Fetch live deals from Express backend API
+    const fetchDeals = async () => {
+      try {
+        const liveDeals = await dealsAPI.getAll();
+        if (Array.isArray(liveDeals) && liveDeals.length > 0) {
+          setDeals(liveDeals);
+        }
+      } catch (err) {
+        console.log('Backend API offline or unreachable; using local deals catalog:', err.message);
+      }
+    };
+
+    fetchDeals();
+  }, []);
+
+  const handleNavigate = (page, dealId = null) => {
+    setCurrentPage(page);
+    if (dealId) {
+      setSelectedDealId(dealId);
+    }
+    window.scrollTo(0, 0);
+  };
+
+  const handleToggleSaved = (dealId) => {
+    setSavedDealIds(prev => {
+      const exists = prev.includes(dealId);
+      const updated = exists ? prev.filter(id => id !== dealId) : [...prev, dealId];
+
+      setDeals(dealsList => dealsList.map(d => {
         if (d.id === dealId) {
-          const isNowInterested = !d.is_interested;
           return {
             ...d,
-            is_interested: isNowInterested,
-            interested_count: d.interested_count + (isNowInterested ? 1 : -1)
+            interested_count: exists ? Math.max(0, (d.interested_count || 0) - 1) : (d.interested_count || 0) + 1
           };
         }
         return d;
-      })
-    );
-  };
+      }));
 
-  // Handle claim voucher addition
-  const handleClaimSuccess = (dealId) => {
-    const targetDeal = deals.find(d => d.id === dealId);
-    if (targetDeal) {
-      const randomCode = 'CLAIM-' + Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-      const newClaim = {
-        id: 'c_' + Date.now(),
-        claim_code: randomCode,
-        deal_title: targetDeal.title,
-        brand: targetDeal.brand,
-        price: targetDeal.price,
-        original_price: targetDeal.original_price,
-        claimed_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        status: 'ACTIVE'
-      };
-      setUserClaims(prev => [newClaim, ...prev]);
-    }
-  };
-
-  const handleViewDetail = (deal) => {
-    setSelectedDeal(deal);
-    setActiveTab('detail');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleBackToDeals = () => {
-    setSelectedDeal(null);
-    setActiveTab('deals');
+      return updated;
+    });
   };
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     if (user.is_admin) {
-      setActiveTab('admin');
+      handleNavigate('admin');
     } else {
-      setActiveTab('deals');
+      handleNavigate('home');
     }
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('promohub_token');
+    localStorage.removeItem('promohub_user');
     setCurrentUser(null);
-    setActiveTab('deals');
+    handleNavigate('home');
   };
 
-  const interestedDealsCount = deals.filter(d => d.is_interested).length;
+  const handleOpenClaimModal = (deal) => {
+    setClaimingDeal(deal);
+  };
+
+  const handleConfirmClaim = (dealId) => {
+    setDeals(prevDeals => prevDeals.map(d => {
+      if (d.id === dealId) {
+        return {
+          ...d,
+          stock_remaining: Math.max(0, d.stock_remaining - 1)
+        };
+      }
+      return d;
+    }));
+
+    const claimedDeal = deals.find(d => d.id === dealId);
+    if (claimedDeal) {
+      const newClaim = {
+        id: Date.now(),
+        deal_id: dealId,
+        claim_code: 'CLAIM-' + Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        claimed_at: new Date().toISOString(),
+        deal_title: claimedDeal.title,
+        brand: claimedDeal.brand,
+        price: claimedDeal.price,
+        original_price: claimedDeal.original_price
+      };
+      setUserClaims(prev => [newClaim, ...prev]);
+    }
+  };
+
+  const selectedDeal = deals.find(d => d.id === selectedDealId);
 
   return (
-    <div className="app-container">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg-canvas)' }}>
+      {/* Brand Header & Role-Based Navigation */}
       <Navbar 
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          if (tab !== 'detail') setSelectedDeal(null);
-        }}
-        interestedCount={interestedDealsCount}
+        onNavigate={handleNavigate}
+        claimsCount={userClaims.length}
+        savedCount={savedDealIds.length}
+        currentPage={currentPage}
         currentUser={currentUser}
-        onLoginClick={() => setActiveTab('login')}
-        onRegisterClick={() => setActiveTab('register')}
         onLogout={handleLogout}
       />
 
-      <main className="main-content">
-        {activeTab === 'deals' && (
-          <DealsList 
-            deals={deals}
-            setDeals={setDeals}
-            onViewDetail={handleViewDetail}
-            onToggleInterest={handleToggleInterest}
-          />
-        )}
+      {/* Main Content Area */}
+      <main style={{ flex: 1, padding: 'var(--space-xl) var(--space-md)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          {currentPage === 'home' && (
+            <DealsList 
+              deals={deals}
+              onSelectDeal={(id) => handleNavigate('detail', id)}
+              onClaim={handleOpenClaimModal}
+              savedDealIds={savedDealIds}
+              onToggleSaved={handleToggleSaved}
+            />
+          )}
 
-        {activeTab === 'interested' && (
-          <InterestedDeals 
-            deals={deals}
-            onClaim={(d) => { setSelectedDeal(d); setActiveTab('detail'); }}
-            onViewDetail={handleViewDetail}
-            onToggleInterest={handleToggleInterest}
-            onBackToAll={handleBackToDeals}
-          />
-        )}
+          {currentPage === 'detail' && (
+            <DealDetail 
+              deal={selectedDeal}
+              onBack={() => handleNavigate('home')}
+              onClaim={handleOpenClaimModal}
+              isSaved={selectedDealId ? savedDealIds.includes(selectedDealId) : false}
+              onToggleSaved={handleToggleSaved}
+            />
+          )}
 
-        {activeTab === 'my-claims' && (
-          <MyClaims 
-            userClaims={userClaims}
-            onExploreDeals={handleBackToDeals}
-          />
-        )}
+          {currentPage === 'claims' && (
+            <MyClaims 
+              userClaims={userClaims}
+              onExploreDeals={() => handleNavigate('home')}
+            />
+          )}
 
-        {activeTab === 'admin' && (
-          <AdminDashboard 
-            deals={deals}
-            setDeals={setDeals}
-            userClaims={userClaims}
-          />
-        )}
+          {currentPage === 'admin' && (
+            <AdminDashboard 
+              deals={deals}
+              setDeals={setDeals}
+              userClaims={userClaims}
+              currentUser={currentUser}
+            />
+          )}
 
-        {activeTab === 'login' && (
-          <Login 
-            onLoginSuccess={handleLoginSuccess}
-            onSwitchToRegister={() => setActiveTab('register')}
-          />
-        )}
+          {currentPage === 'interested' && (
+            <InterestedDeals 
+              deals={deals}
+              savedDealIds={savedDealIds}
+              onSelectDeal={(id) => handleNavigate('detail', id)}
+              onClaim={handleOpenClaimModal}
+              onToggleSaved={handleToggleSaved}
+              onExploreDeals={() => handleNavigate('home')}
+            />
+          )}
 
-        {activeTab === 'register' && (
-          <Register 
-            onRegisterSuccess={handleLoginSuccess}
-            onSwitchToLogin={() => setActiveTab('login')}
-          />
-        )}
+          {currentPage === 'login' && (
+            <Login 
+              initialAdminMode={targetAdminView}
+              onLoginSuccess={handleLoginSuccess}
+              onSwitchToRegister={() => handleNavigate('register')}
+            />
+          )}
 
-        {activeTab === 'detail' && selectedDeal && (
-          <DealDetail 
-            deal={deals.find(d => d.id === selectedDeal.id) || selectedDeal} 
-            onBack={handleBackToDeals}
-            onClaimSuccess={handleClaimSuccess}
-          />
-        )}
-
-        {activeTab === 'how-it-works' && (
-          <HowItWorks />
-        )}
+          {currentPage === 'register' && (
+            <Register 
+              onRegisterSuccess={handleLoginSuccess}
+              onSwitchToLogin={() => handleNavigate('login')}
+            />
+          )}
+        </div>
       </main>
 
-      <Footer />
+      {/* Voucher Claiming Confirmation Popup Modal */}
+      {claimingDeal && (
+        <ClaimModal 
+          deal={claimingDeal}
+          onClose={() => setClaimingDeal(null)}
+          onConfirmClaim={handleConfirmClaim}
+          currentUser={currentUser}
+          onPromptLogin={() => handleNavigate('login')}
+        />
+      )}
+
+      {/* Brand Footer */}
+      <footer style={{
+        backgroundColor: 'var(--color-ink-navy)',
+        color: 'var(--color-ticket-cream)',
+        padding: 'var(--space-xl) var(--space-md)',
+        marginTop: 'var(--space-2xl)',
+        borderTop: '3px solid var(--color-stamp-amber)',
+        textAlign: 'center'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', fontSize: '14px' }}>
+          <p style={{ fontWeight: '700', marginBottom: '4px' }}>PromoHub — Scalable Flash Sale & Deals Voucher Platform</p>
+          <p style={{ color: 'rgba(255,248,237,0.7)', fontSize: '12px' }}>
+            Zero-oversell atomic concurrency locking • High-traffic Cloud Architecture • Open Source MVP
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

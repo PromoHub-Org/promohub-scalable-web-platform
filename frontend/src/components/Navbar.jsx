@@ -2,19 +2,22 @@ import React from 'react';
 import { Tag, Ticket, Heart, User, LogIn, Sparkles, LayoutDashboard, LogOut } from 'lucide-react';
 
 export default function Navbar({ 
-  activeTab, 
-  setActiveTab, 
-  interestedCount, 
-  currentUser, 
-  onLoginClick, 
-  onRegisterClick, 
+  onNavigate,
+  currentPage,
+  savedCount = 0,
+  claimsCount = 0,
+  currentUser,
   onLogout 
 }) {
   return (
     <header className="navbar">
       <div className="navbar-inner">
         {/* Brand Wordmark */}
-        <a href="#deals" className="navbar-brand" onClick={() => setActiveTab('deals')}>
+        <button 
+          onClick={() => onNavigate('home')} 
+          className="navbar-brand"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
           <div style={{
             backgroundColor: 'var(--color-ticket-cream)',
             padding: '4px 8px',
@@ -27,15 +30,15 @@ export default function Navbar({
             <Ticket size={20} color="var(--color-ink-navy)" strokeWidth={2.5} />
           </div>
           <span className="navbar-logo-text">PromoHub</span>
-        </a>
+        </button>
 
         {/* Navigation Links */}
         <nav>
           <ul className="navbar-nav">
             <li>
               <button 
-                className={`nav-link ${activeTab === 'deals' ? 'active' : ''}`}
-                onClick={() => setActiveTab('deals')}
+                className={`nav-link ${currentPage === 'home' ? 'active' : ''}`}
+                onClick={() => onNavigate('home')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 <Tag size={18} />
@@ -45,13 +48,13 @@ export default function Navbar({
 
             <li>
               <button 
-                className={`nav-link ${activeTab === 'interested' ? 'active' : ''}`}
-                onClick={() => setActiveTab('interested')}
+                className={`nav-link ${currentPage === 'interested' ? 'active' : ''}`}
+                onClick={() => onNavigate('interested')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative' }}
               >
-                <Heart size={18} color="var(--color-flame-coral)" fill={interestedCount > 0 ? "var(--color-flame-coral)" : "none"} />
+                <Heart size={18} color="var(--color-flame-coral)" fill={savedCount > 0 ? "var(--color-flame-coral)" : "none"} />
                 My Saved Deals
-                {interestedCount > 0 && (
+                {savedCount > 0 && (
                   <span className="mono-number" style={{
                     backgroundColor: 'var(--color-flame-coral)',
                     color: '#ffffff',
@@ -61,7 +64,7 @@ export default function Navbar({
                     padding: '2px 6px',
                     marginLeft: '4px'
                   }}>
-                    {interestedCount}
+                    {savedCount}
                   </span>
                 )}
               </button>
@@ -70,12 +73,12 @@ export default function Navbar({
             {currentUser && (
               <li>
                 <button 
-                  className={`nav-link ${activeTab === 'my-claims' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('my-claims')}
+                  className={`nav-link ${currentPage === 'claims' ? 'active' : ''}`}
+                  onClick={() => onNavigate('claims')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   <Ticket size={18} />
-                  My Claims
+                  My Claims ({claimsCount})
                 </button>
               </li>
             )}
@@ -83,8 +86,8 @@ export default function Navbar({
             {currentUser && currentUser.is_admin && (
               <li>
                 <button 
-                  className={`nav-link ${activeTab === 'admin' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('admin')}
+                  className={`nav-link ${currentPage === 'admin' ? 'active' : ''}`}
+                  onClick={() => onNavigate('admin')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-stamp-amber)' }}
                 >
                   <LayoutDashboard size={18} />
@@ -92,17 +95,6 @@ export default function Navbar({
                 </button>
               </li>
             )}
-
-            <li>
-              <button 
-                className={`nav-link ${activeTab === 'how-it-works' ? 'active' : ''}`}
-                onClick={() => setActiveTab('how-it-works')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                <Sparkles size={18} />
-                How It Works
-              </button>
-            </li>
           </ul>
         </nav>
 
@@ -130,7 +122,7 @@ export default function Navbar({
               <button 
                 className="btn btn-secondary" 
                 style={{ color: 'var(--color-ticket-cream)', borderColor: 'var(--color-ticket-cream)', padding: '6px 14px', fontSize: '14px' }}
-                onClick={onLoginClick}
+                onClick={() => onNavigate('login')}
               >
                 <LogIn size={16} />
                 Log In
@@ -138,7 +130,7 @@ export default function Navbar({
               <button 
                 className="btn btn-primary" 
                 style={{ padding: '6px 14px', fontSize: '14px' }}
-                onClick={onRegisterClick}
+                onClick={() => onNavigate('register')}
               >
                 <User size={16} />
                 Sign Up

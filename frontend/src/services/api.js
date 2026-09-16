@@ -21,14 +21,26 @@ const request = async (endpoint, options = {}) => {
     }
   };
 
-  const response = await fetch(url, config);
-  const data = await response.json();
+  try {
+    const response = await fetch(url, config);
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
 
-  if (!response.ok) {
-    throw new Error(data.error || `HTTP error ${response.status}`);
+    if (!response.ok) {
+      throw new Error(data.error || `HTTP error ${response.status}`);
+    }
+
+    return data;
+  } catch (err) {
+    if (err.message && (err.message.includes('Failed to fetch') || err.name === 'TypeError')) {
+      throw new Error('Cannot connect to PromoHub backend. Please ensure the backend server is running ("cd backend && npm start" in your terminal).');
+    }
+    throw err;
   }
-
-  return data;
 };
 
 // Authentication API Services

@@ -578,10 +578,7 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [], curre
               </tr>
             </thead>
             <tbody>
-              {(registeredUsers.length > 0 ? registeredUsers : [
-                { id: 1, name: 'System Admin', email: 'admin@promohub.com', is_admin: 1, created_at: '2026-08-01 10:00:00' },
-                { id: 2, name: 'Jane Doe', email: 'jane.doe@example.com', is_admin: 0, created_at: '2026-08-15 14:23:10' }
-              ])
+              {registeredUsers
               .filter(u => 
                 (u.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) || 
                 (u.email || '').toLowerCase().includes(userSearchQuery.toLowerCase())
@@ -615,6 +612,13 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [], curre
                   </td>
                 </tr>
               ))}
+              {registeredUsers.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: 'var(--color-slate-grey)', fontStyle: 'italic' }}>
+                    No registered user accounts found in database.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

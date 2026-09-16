@@ -27,22 +27,8 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
       }
     } catch (err) {
       console.error('Register API error:', err);
-      if (name && email && password) {
-        const isAdmin = email.toLowerCase().includes('admin');
-        const fallbackUser = {
-          id: Date.now(),
-          name,
-          email,
-          is_admin: isAdmin
-        };
-        localStorage.setItem('promohub_token', 'mock_jwt_token_' + Date.now());
-        localStorage.setItem('promohub_user', JSON.stringify(fallbackUser));
-        setIsLoading(false);
-        if (onRegisterSuccess) onRegisterSuccess(fallbackUser);
-      } else {
-        setIsLoading(false);
-        setError(err.message || 'Registration failed. Please try again.');
-      }
+      setIsLoading(false);
+      setError(err.message || 'Registration failed. Please ensure the backend server is running on http://localhost:5000.');
     }
   };
 

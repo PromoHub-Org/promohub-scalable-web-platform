@@ -28,24 +28,8 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, initialAdmin
       }
     } catch (err) {
       console.error('Login API error:', err);
-      // Fallback local login simulation if backend server is not running during local UI preview
-      if (email && password) {
-        const isAdmin = isAdminMode || email.toLowerCase().includes('admin') || password === 'admin123';
-        const fallbackUser = {
-          id: Date.now(),
-          name: email.split('@')[0] || 'User',
-          email: email,
-          is_admin: isAdmin,
-          role: isAdmin ? 'Super Admin' : 'User'
-        };
-        localStorage.setItem('promohub_token', 'mock_jwt_token_' + Date.now());
-        localStorage.setItem('promohub_user', JSON.stringify(fallbackUser));
-        setIsLoading(false);
-        if (onLoginSuccess) onLoginSuccess(fallbackUser);
-      } else {
-        setIsLoading(false);
-        setError(err.message || 'Login failed. Please check credentials.');
-      }
+      setIsLoading(false);
+      setError(err.message || 'Login failed. Please verify your credentials and ensure the backend server is running on http://localhost:5000.');
     }
   };
 

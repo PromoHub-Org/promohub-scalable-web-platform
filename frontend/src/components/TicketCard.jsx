@@ -9,7 +9,12 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
   // Synchronized countdown timer matching master D-Day Event date (14 days)
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const targetDate = new Date(deal.end_time || EVENT_START_DATE);
+      let targetDate = new Date(deal.end_time);
+      // If end_time is invalid or in the past, sync with active 14-day D-Day window
+      if (isNaN(targetDate.getTime()) || targetDate <= new Date()) {
+        targetDate = new Date(EVENT_START_DATE);
+      }
+
       const difference = targetDate - new Date();
       if (difference <= 0) {
         setTimeLeft('00d 00:00:00');
@@ -17,6 +22,7 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
         return;
       }
 
+      setIsExpired(false);
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
       const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((difference / 1000 / 60) % 60);
@@ -37,8 +43,9 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
     return () => clearInterval(timer);
   }, [deal.end_time]);
 
-  const isSoldOut = deal.stock_remaining === 0 || isExpired;
-  const isLowStock = deal.stock_remaining > 0 && deal.stock_remaining <= 5;
+  // A deal is only sold out when remaining stock is 0
+  const isSoldOut = Number(deal.stock_remaining) <= 0;
+  const isLowStock = Number(deal.stock_remaining) > 0 && Number(deal.stock_remaining) <= 5;
   const isInterested = Boolean(isSaved || deal.is_interested);
 
   return (

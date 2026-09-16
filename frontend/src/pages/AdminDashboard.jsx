@@ -63,14 +63,31 @@ export default function AdminDashboard({ deals, setDeals, userClaims = [], curre
         console.log('Using local claims ledger:', err.message);
       }
 
+      let combinedUsers = [];
       try {
         const users = await adminAPI.getUsers();
         if (Array.isArray(users)) {
-          setRegisteredUsers(users);
+          combinedUsers = [...users];
         }
       } catch (err) {
         console.log('Using local users list:', err.message);
       }
+
+      // Merge with any users registered locally or offline in browser storage
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('promohub_registered_users') || '[]');
+        if (Array.isArray(localUsers)) {
+          localUsers.forEach(lu => {
+            if (!combinedUsers.some(u => u.email.toLowerCase() === lu.email.toLowerCase())) {
+              combinedUsers.push(lu);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Error reading local users:', e);
+      }
+
+      setRegisteredUsers(combinedUsers);
     };
 
     fetchAdminData();

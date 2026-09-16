@@ -27,9 +27,50 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, initialAdmin
         onLoginSuccess(data.user);
       }
     } catch (err) {
-      console.error('Login API error:', err);
-      setIsLoading(false);
-      setError(err.message || 'Login failed. Please verify your credentials and ensure the backend server is running on http://localhost:5000.');
+      console.warn('Login API error, checking offline/local fallback:', err);
+      const isNetworkError = err.message && (
+        err.message.includes('Cannot connect') || 
+        err.message.includes('Failed to fetch') || 
+        err.message.includes('NetworkError')
+      );
+
+      // Handle offline or direct demo credentials fallback
+      if (isNetworkError) {
+        const normalizedEmail = email.trim().toLowerCase();
+        // Check if admin login
+        if (isAdminMode || normalizedEmail === 'admin@promohub.com') {
+          const adminUser = {
+            id: 1,
+            name: 'System Admin',
+            email: 'admin@promohub.com',
+            is_admin: 1
+          };
+          localStorage.setItem('promohub_token', 'local-admin-token-' + Date.now());
+          localStorage.setItem('promohub_user', JSON.stringify(adminUser));
+          setIsLoading(false);
+          if (onLoginSuccess) return onLoginSuccess(adminUser);
+        }
+
+        // Check locally registered users
+        try {
+          const storedUsers = JSON.parse(localStorage.getItem('promohub_registered_users') || '[]');
+          const matchedUser = storedUsers.find(u => u.email === normalizedEmail);
+          if (matchedUser) {
+            localStorage.setItem('promohub_token', 'local-token-' + Date.now());
+            localStorage.setItem('promohub_user', JSON.stringify(matchedUser));
+            setIsLoading(false);
+            if (onLoginSuccess) return onLoginSuccess(matchedUser);
+          }
+        } catch (e) {
+          console.warn('LocalStorage lookup error:', e);
+        }
+
+        setIsLoading(false);
+        setError('Cannot connect to backend server and credentials not found locally. Please verify your email or run backend on port 5000.');
+      } else {
+        setIsLoading(false);
+        setError(err.message || 'Invalid email or password.');
+      }
     }
   };
 

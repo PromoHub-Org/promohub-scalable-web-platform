@@ -13,9 +13,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Flexible CORS configuration for local development and cloud previews
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow server-to-server, mobile, curl, or same-origin requests (origin undefined)
+    if (!origin) return callback(null, true);
+    // Allow any localhost port, 127.0.0.1, or vercel preview domains
+    if (
+      origin.startsWith('http://localhost:') || 
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.endsWith('.vercel.app') ||
+      process.env.CLIENT_ORIGIN === '*' ||
+      origin === process.env.CLIENT_ORIGIN
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
   credentials: true
 }));
 

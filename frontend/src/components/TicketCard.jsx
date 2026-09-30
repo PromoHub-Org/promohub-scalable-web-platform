@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Clock, AlertTriangle, CheckCircle, Ticket, Heart } from 'lucide-react';
 import { EVENT_START_DATE } from '../mockData/deals';
 
-export default function TicketCard({ deal, onClaim, onViewDetail, onToggleInterest }) {
+export default function TicketCard({ deal, onClaim, onViewDetail, onToggleInterest, isSaved = false }) {
   const [timeLeft, setTimeLeft] = useState('');
   const [isExpired, setIsExpired] = useState(false);
 
   // Synchronized countdown timer matching master D-Day Event date (14 days)
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const targetDate = new Date(deal.end_time || EVENT_START_DATE);
+      let targetDate = new Date(deal.end_time);
+      // If end_time is invalid or in the past, sync with active 14-day D-Day window
+      if (isNaN(targetDate.getTime()) || targetDate <= new Date()) {
+        targetDate = new Date(EVENT_START_DATE);
+      }
+
       const difference = targetDate - new Date();
       if (difference <= 0) {
         setTimeLeft('00d 00:00:00');
@@ -17,6 +22,7 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
         return;
       }
 
+      setIsExpired(false);
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
       const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((difference / 1000 / 60) % 60);
@@ -37,8 +43,10 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
     return () => clearInterval(timer);
   }, [deal.end_time]);
 
-  const isSoldOut = deal.stock_remaining === 0 || isExpired;
-  const isLowStock = deal.stock_remaining > 0 && deal.stock_remaining <= 5;
+  // A deal is only sold out when remaining stock is 0
+  const isSoldOut = Number(deal.stock_remaining) <= 0;
+  const isLowStock = Number(deal.stock_remaining) > 0 && Number(deal.stock_remaining) <= 5;
+  const isInterested = Boolean(isSaved || deal.is_interested);
 
   return (
     <div className={`ticket-card ${isSoldOut ? 'sold-out' : ''}`}>
@@ -87,9 +95,9 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
 
         <div className="ticket-meta">
           <div>
-            <span className="ticket-price">${deal.price.toFixed(2)}</span>
+            <span className="ticket-price">${Number(deal.price).toFixed(2)}</span>
             {deal.original_price && (
-              <span className="ticket-original-price">${deal.original_price.toFixed(2)}</span>
+              <span className="ticket-original-price">${Number(deal.original_price).toFixed(2)}</span>
             )}
           </div>
 
@@ -103,30 +111,30 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: 'var(--radius)',
-                border: deal.is_interested ? '2px solid var(--color-flame-coral)' : '1px solid var(--color-ink-navy)',
-                backgroundColor: deal.is_interested ? 'rgba(226, 75, 74, 0.1)' : '#ffffff',
-                color: deal.is_interested ? 'var(--color-flame-coral)' : 'var(--color-ink-navy)',
+                border: isInterested ? '2px solid var(--color-flame-coral)' : '1px solid var(--color-ink-navy)',
+                backgroundColor: isInterested ? 'rgba(226, 75, 74, 0.1)' : '#ffffff',
+                color: isInterested ? 'var(--color-flame-coral)' : 'var(--color-ink-navy)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={deal.is_interested ? "You indicated interest for D-Day!" : "Click to indicate interest for D-Day!"}
+              title={isInterested ? "Saved to your Wishlist!" : "Click to indicate interest for D-Day!"}
             >
               <Heart 
                 size={16} 
                 color="var(--color-flame-coral)" 
-                fill={deal.is_interested ? "var(--color-flame-coral)" : "none"} 
+                fill={isInterested ? "var(--color-flame-coral)" : "none"} 
               />
-              <span>{deal.interested_count.toLocaleString()}</span>
-              {deal.is_interested && <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Interested</span>}
+              <span>{Number(deal.interested_count || 0).toLocaleString()}</span>
+              {isInterested && <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Saved</span>}
             </button>
 
             <button 
               className="btn btn-secondary"
               style={{ padding: '6px 12px', fontSize: '13px' }}
-              onClick={() => onViewDetail(deal)}
+              onClick={() => onViewDetail && onViewDetail(deal.id || deal)}
             >
               Details
             </button>
@@ -165,7 +173,7 @@ export default function TicketCard({ deal, onClaim, onViewDetail, onToggleIntere
         <button
           className={`btn ${isSoldOut ? 'btn-disabled' : 'btn-primary'}`}
           disabled={isSoldOut}
-          onClick={() => onClaim(deal)}
+          onClick={() => onClaim && onClaim(deal)}
         >
           <Ticket size={18} />
           {isSoldOut ? 'SOLD OUT' : 'CLAIM DEAL'}

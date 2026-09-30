@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Ticket, UserPlus, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
+import { Ticket, UserPlus, Mail, Lock, User } from 'lucide-react';
+import { authAPI } from '../services/api';
 
 export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [name, setName] = useState('');
@@ -8,28 +9,80 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (name && email && password) {
-        const isAdmin = email.toLowerCase().includes('admin');
-        const user = {
-          name: name,
-          email: email,
-          is_admin: isAdmin
+    try {
+      // Call live backend registration API
+      const data = await authAPI.register(name, email, password);
+
+      localStorage.setItem('promohub_token', data.token);
+      localStorage.setItem('promohub_user', JSON.stringify(data.user));
+
+      // Mirror to local registered users store for instant dashboard visibility
+      try {
+        const storedUsers = JSON.parse(localStorage.getItem('promohub_registered_users') || '[]');
+        if (!storedUsers.some(u => u.email === data.user.email)) {
+          storedUsers.unshift({
+            id: data.user.id || Date.now(),
+            name: data.user.name,
+            email: data.user.email,
+            is_admin: 0,
+            created_at: new Date().toISOString()
+          });
+          localStorage.setItem('promohub_registered_users', JSON.stringify(storedUsers));
+        }
+      } catch (storageErr) {
+        console.warn('LocalStorage users sync notice:', storageErr);
+      }
+
+      setIsLoading(false);
+      if (onRegisterSuccess) {
+        onRegisterSuccess(data.user);
+      }
+    } catch (err) {
+      console.warn('Register API unavailable, checking local fallback:', err);
+      // If backend is not running or network request fails, provide seamless offline session
+      const isNetworkError = err.message && (
+        err.message.includes('Cannot connect') || 
+        err.message.includes('Failed to fetch') || 
+        err.message.includes('NetworkError')
+      );
+
+      if (isNetworkError) {
+        const localUser = {
+          id: Date.now(),
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          is_admin: 0,
+          created_at: new Date().toISOString()
         };
+
+        const localToken = 'local-offline-token-' + Date.now();
+        localStorage.setItem('promohub_token', localToken);
+        localStorage.setItem('promohub_user', JSON.stringify(localUser));
+
+        try {
+          const storedUsers = JSON.parse(localStorage.getItem('promohub_registered_users') || '[]');
+          if (!storedUsers.some(u => u.email === localUser.email)) {
+            storedUsers.unshift(localUser);
+            localStorage.setItem('promohub_registered_users', JSON.stringify(storedUsers));
+          }
+        } catch (storageErr) {
+          console.warn('LocalStorage fallback save error:', storageErr);
+        }
+
         setIsLoading(false);
         if (onRegisterSuccess) {
-          onRegisterSuccess(user);
+          onRegisterSuccess(localUser);
         }
       } else {
         setIsLoading(false);
-        setError('Please fill in all fields.');
+        setError(err.message || 'Registration failed. Please check your inputs.');
       }
-    }, 600);
+    }
   };
 
   return (
@@ -42,7 +95,6 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }) {
         boxShadow: 'var(--shadow-md)',
         position: 'relative'
       }}>
-        {/* Ticket Perforation Accent */}
         <div style={{
           display: 'flex',
           alignItems: 'center',

@@ -6,6 +6,13 @@ dist/
 .vite/
 **/.vite/
 
+# SQLite databases & local dev files
+*.db
+*.sqlite
+*.sqlite3
+promohub.db
+backend/promohub.db
+
 # Python
 __pycache__/
 *.py[cod]

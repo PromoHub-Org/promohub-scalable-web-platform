@@ -1,37 +1,21 @@
 import React, { useState } from 'react';
 import HeroBanner from '../components/HeroBanner';
 import TicketCard from '../components/TicketCard';
-import ClaimModal from '../components/ClaimModal';
-import { Flame, AlertTriangle, CheckCircle, Search, Filter, RefreshCw, Heart } from 'lucide-react';
+import { Flame, AlertTriangle, CheckCircle, Search } from 'lucide-react';
 
-export default function DealsList({ deals, setDeals, onViewDetail, onToggleInterest }) {
+export default function DealsList({ 
+  deals, 
+  onSelectDeal, 
+  onClaim, 
+  savedDealIds = [], 
+  onToggleSaved 
+}) {
   const [filter, setFilter] = useState('all'); // 'all', 'low-stock', 'available', 'featured'
   const [brandFilter, setBrandFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDealForClaim, setSelectedDealForClaim] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
 
   // Extract unique brands for brand filter
   const brands = ['all', ...new Set(deals.map(d => d.brand))];
-
-  // Handle claiming a deal (atomically reduce stock in state)
-  const handleClaimSuccess = (dealId) => {
-    setDeals(prevDeals => 
-      prevDeals.map(d => {
-        if (d.id === dealId && d.stock_remaining > 0) {
-          const updatedStock = d.stock_remaining - 1;
-          showToast(`Successfully claimed 1 voucher for "${d.brand} — ${d.title}"! Vouchers remaining: ${updatedStock}`);
-          return { ...d, stock_remaining: updatedStock };
-        }
-        return d;
-      })
-    );
-  };
-
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
 
   // Filter logic
   const filteredDeals = deals.filter(deal => {
@@ -48,27 +32,13 @@ export default function DealsList({ deals, setDeals, onViewDetail, onToggleInter
     return true;
   });
 
-  const totalInterested = deals.reduce((acc, d) => acc + d.interested_count, 0);
-  const activeCount = deals.filter(d => d.stock_remaining > 0).length;
+  const totalInterested = deals.reduce((acc, d) => acc + (Number(d.interested_count) || 0), 0);
   const lowStockCount = deals.filter(d => d.stock_remaining > 0 && d.stock_remaining <= 5).length;
 
   return (
     <div>
       {/* Hero Section with Master D-Day Event Countdown */}
       <HeroBanner totalDeals={deals.length} totalInterestedCount={totalInterested} />
-
-      {/* Toast Alert Banner */}
-      {toastMessage && (
-        <div className="alert-banner alert-success">
-          <span>{toastMessage}</span>
-          <button 
-            onClick={() => setToastMessage(null)}
-            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: '700' }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* Filter and Search Bar */}
       <div className="section-header" style={{ flexWrap: 'wrap', gap: 'var(--space-md)' }}>
@@ -157,9 +127,10 @@ export default function DealsList({ deals, setDeals, onViewDetail, onToggleInter
             <TicketCard 
               key={deal.id}
               deal={deal}
-              onClaim={(d) => setSelectedDealForClaim(d)}
-              onViewDetail={onViewDetail}
-              onToggleInterest={onToggleInterest}
+              isSaved={savedDealIds.includes(deal.id)}
+              onClaim={() => onClaim(deal)}
+              onViewDetail={() => onSelectDeal(deal.id)}
+              onToggleInterest={() => onToggleSaved && onToggleSaved(deal.id)}
             />
           ))
         ) : (
@@ -183,15 +154,6 @@ export default function DealsList({ deals, setDeals, onViewDetail, onToggleInter
           </div>
         )}
       </div>
-
-      {/* Interactive Claim Voucher Modal */}
-      {selectedDealForClaim && (
-        <ClaimModal 
-          deal={selectedDealForClaim}
-          onClose={() => setSelectedDealForClaim(null)}
-          onConfirmClaim={handleClaimSuccess}
-        />
-      )}
     </div>
   );
 }

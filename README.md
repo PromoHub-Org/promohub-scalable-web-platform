@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-PromoHub is an e-commerce web platform with generic dicount code, the website os designed to simulate a real world application that experiences significant traffic spikes during promotional campaigns.
+PromoHub is an e-commerce web platform with generic dicount code, the website is designed to simulate a real world application that experiences significant traffic spikes during promotional campaigns.
 
 The project focuses on designing, implementing, testing and automating a highly available and scalable cloud infrastructure capable of maintaining application availability and performance during sudden increases in traffic.
 
